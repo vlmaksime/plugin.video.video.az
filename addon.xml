@@ -2,6 +2,7 @@
 <addon id="plugin.video.video.az" version="0.1.1" name="Video.AZ" provider-name="vl.maksime">
     <requires>
         <import addon="xbmc.python" version="2.1.0"/>
+        <import addon="script.module.requests" version="2.12.4"/>
         <import addon="script.module.simpleplugin" version="2.1.0"/>
     </requires>
     <extension point="xbmc.python.pluginsource" library="default.py">
@@ -21,7 +22,7 @@
         <website>http://www.tvzavr.ru/</website>
         <email>vl.maksime@gmail.com</email>
         <source>https://github.com/vlmaksime/plugin.video.video.az</source>
-        <news></news>
+        <news>- Публичный релиз</news>
         <assets>
             <icon>icon.png</icon>
             <fanart>fanart.jpg</fanart>
