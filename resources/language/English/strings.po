@@ -42,6 +42,14 @@ msgctxt "#30007"
 msgid "New Search..."
 msgstr ""
 
+msgctxt "#30008"
+msgid "Nothing found!"
+msgstr ""
+
+msgctxt "#30009"
+msgid "Connection error"
+msgstr ""
+
 msgctxt "#30010"
 msgid "Video Stream"
 msgstr ""
@@ -76,4 +84,12 @@ msgstr ""
 
 msgctxt "#30018"
 msgid "File names for saving with 'Add To Lib'"
+msgstr ""
+
+msgctxt "#30019"
+msgid "Show Movie info in list (slower)"
+msgstr ""
+
+msgctxt "#30020"
+msgid "Use for search from 'Unified search' addon"
 msgstr ""

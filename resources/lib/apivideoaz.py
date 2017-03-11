@@ -6,6 +6,11 @@ import requests
 import re
 import xml.etree.ElementTree as ET
 
+class VideoAzApiError(Exception):
+    def __init__(self, value, code):
+         self.value = value
+         self.code = code
+
 class videoaz:
  
     def __init__( self, params = {}, debug = False ):
@@ -41,6 +46,7 @@ class videoaz:
         #http://api.baku.video:80/video/by_id?id=159153
         
         self.__actions = {'main':            {'type': 'get', 'url': base_url + '/main'},
+                          'playlist_xml':    {'type': 'get'},
                           #movie
                           'category_movie':  {'type': 'get', 'url': base_url + '/category/movie'},
                           'category_genre':  {'type': 'get', 'url': base_url + '/category/genre'},
@@ -63,12 +69,12 @@ class videoaz:
     def __set_setting( self, id, value ):
         self.__settings[id] = value
 
-    def __http_request( self, action, params = {}, data={} ):
+    def __http_request( self, action, params = {}, data={}, url='' ):
         action_settings = self.__actions.get(action)
 
         user_agent = 'Mozilla/5.0 (Linux; Android 5.1; KODI) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/40.0.2214.124 Mobile Safari/537.36'
 
-        url = action_settings['url']
+        url = action_settings.get('url', url)
         cookies = {}
         cfduid = self.__get_setting('cfduid')
         if cfduid:
@@ -77,14 +83,17 @@ class videoaz:
         headers = {'User-Agent': user_agent}
 
         request_type = action_settings.get('type', 'post')
-        if request_type == 'post':
-            return requests.post(url, data=data, params=params, headers=headers, cookies=cookies)
-        elif request_type == 'get':
-            return requests.get(url, data=data, params=params, headers=headers, cookies=cookies)
-        else:
-            return None
+        try:
+            if request_type == 'post':
+                r = requests.post(url, data=data, params=params, headers=headers, cookies=cookies)
+            elif request_type == 'get':
+                r = requests.get(url, data=data, params=params, headers=headers, cookies=cookies)
+            else:
+                raise VideoAzApiError('Wrong request_type %s' % (request_type), 1)
 
-        r.raise_for_status()
+            r.raise_for_status()
+        except requests.ConnectionError as err:
+            raise VideoAzApiError('Connection error', 1)
 
         return r
 
@@ -386,12 +395,16 @@ class videoaz:
         file = ''
 
         if xml_url != '':
-            r = requests.get(xml_url)
-            r.raise_for_status()
+            try:
+                r = self.__http_request('playlist_xml', url=xml_url)
+            except VideoAzApiError:
+                return file
 
             root = ET.fromstring(r.text.encode('utf-8'))
             for sources in root.iter('{http://rss.jwpcdn.com/}source'):
-                file = sources.attrib.get('file')
-                if file[-4:] == 'm3u8': break
+                curfile = sources.attrib.get('file')
+                if curfile[-4:] == 'm3u8':
+                    file = curfile
+                    break
 
         return file

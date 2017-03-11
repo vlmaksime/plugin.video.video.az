@@ -41,6 +41,15 @@ msgstr "Далее..."
 msgctxt "#30007"
 msgid "New Search..."
 msgstr "Новый поиск..."
+
+msgctxt "#30008"
+msgid "Nothing found!"
+msgstr "Ничего не найдено!"
+
+msgctxt "#30009"
+msgid "Connection error"
+msgstr "Ошибка подключения"
+
 msgctxt "#30010"
 msgid "Video Stream"
 msgstr "Поток видео"
@@ -76,3 +85,11 @@ msgstr ""
 msgctxt "#30018"
 msgid "File names for saving with 'Add To Lib'"
 msgstr "Имена файлов для распознования в 'Add To Lib'"
+
+msgctxt "#30019"
+msgid "Show Movie info in list (slower)"
+msgstr "Показывать описание в списке (медленнее)"
+
+msgctxt "#30020"
+msgid "Use for search from 'Unified search' addon"
+msgstr "Использовать для поиска в дополнении 'Unified search'"

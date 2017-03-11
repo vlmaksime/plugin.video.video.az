@@ -6,6 +6,7 @@ import resources.lib.apivideoaz as apivideoaz
 import xbmcgui
 from simpleplugin import Plugin
 from urllib import urlencode
+import xbmcgui
 
 # Create plugin instance
 plugin = Plugin()
@@ -43,12 +44,25 @@ def get_setting(id):
     else:
         return value
 
+def show_api_error(err):
+    text = ''
+    if err.code == 1:
+        text = _('Connection error')
+    else:
+        text = str(err)
+    xbmcgui.Dialog().notification(plugin._addon.getAddonInfo('name'), text, xbmcgui.NOTIFICATION_ERROR)
+
+def show_info_notification(text):
+    xbmcgui.Dialog().notification(plugin.addon.getAddonInfo('name'), text)
+
 def check_cookies():
-    cfduid = plugin.get_setting('cfduid')
-    if len(cfduid) == 0:
-        cfduid = _api.get_cfduid()
-        plugin.set_setting('cfduid', cfduid)
-        
+    if len(plugin.cfduid) == 0:
+        try:
+            cfduid = _api.get_cfduid()
+            plugin.set_setting('cfduid', cfduid)
+        except apivideoaz.VideoAzApiError as err:
+            show_api_error(err)
+            
 def get_request_params( params ):
     result = {}
     for param in params:
@@ -59,7 +73,8 @@ def get_request_params( params ):
 def make_items(video_list):
     listing = []
 
-    use_atl_names = get_setting('use_atl_names')
+    use_atl_names = plugin.use_atl_names
+    movie_details = plugin.movie_details
     
     for video in video_list:
         item_info = video['item_info']
@@ -71,8 +86,6 @@ def make_items(video_list):
             is_playable = True
             url = plugin.get_url(action='play', _type = 'movie', _id = video_info['id'])
 
-            details = get_movie_details(video_info['id'])
-            
             label_list = []
             if use_atl_names:
                 label_list.append(item_info['info']['video']['originaltitle'])
@@ -82,14 +95,17 @@ def make_items(video_list):
             if item_info['info']['video']['year'] > 0:
                 label_list.append(' (%d)' % item_info['info']['video']['year'])
 
-            if not use_atl_names and details['video_quality'] != '':
-                label_list.append(' [%s]' % details['video_quality'])
-            del details['video_quality']
-            
+            if movie_details:
+                details = get_movie_details(video_info['id'])
+                
+                if not use_atl_names and details['video_quality'] != '':
+                    label_list.append(' [%s]' % details['video_quality'])
+                del details['video_quality']
+                item_info['info']['video'].update(details)
+           
             item_info['label'] = ''.join(label_list)
 
             del item_info['info']['video']['title']
-            item_info['info']['video'].update(details)
 
         elif video_type == 'tvseries':
             is_playable = False
@@ -123,7 +139,7 @@ def make_items(video_list):
 
     return listing
 
-@plugin.cached()
+@plugin.cached(180)
 def get_movie_details( id ):
     return _api.get_movie_details(id)
 
@@ -162,23 +178,27 @@ def list_videos( params ):
     
     if params['cat'] == 'movies':
         u_params['lang'] = get_setting('movie_lang')
-        video_list = _api.browse_movie(u_params)
         use_pages = True
         content='movies'
     elif params['cat'] == 'tvseries':
-        video_list = _api.browse_tvseries(u_params)
         use_pages = True
         content='tvshows'
     elif params['cat'] == 'seasons':
-        video_list = _api.browse_seasons(u_params)
         content='tvshows'
     elif params['cat'] == 'episodes':
-        video_list = _api.browse_episodes(u_params)
         content='episodes'
     elif params['cat'] == 'videos':
-        video_list = _api.browse_video(u_params)
         use_pages = True
         content='episodes'
+
+    try:
+        video_list = get_video_list(params['cat'], u_params)
+        succeeded = True
+    except apivideoaz.VideoAzApiError as err:
+        show_api_error(err)
+        video_list = []
+        succeeded = False
+        
 
     listing = make_items(video_list)
     
@@ -191,22 +211,36 @@ def list_videos( params ):
             'label': _('Next page...'),
             'url': url})
          
-    return plugin.create_listing(listing, content=content)
+    return plugin.create_listing(listing, content=content, succeeded=succeeded)
+
+def get_video_list(cat, u_params):
+    if cat == 'movies':
+        video_list = _api.browse_movie(u_params)
+    elif cat == 'tvseries':
+        video_list = _api.browse_tvseries(u_params)
+    elif cat == 'seasons':
+        video_list = _api.browse_seasons(u_params)
+    elif cat == 'episodes':
+        video_list = _api.browse_episodes(u_params)
+    elif cat == 'videos':
+        video_list = _api.browse_video(u_params)
+        
+    return video_list
 
 @plugin.action()
 def search( params ):
     history_length = 10
-    new_search = False
     
     check_cookies()
 
     category = params.get('cat', 'all')
-    
-    keyword = params.get('keyword','')
+    keyword  = params.get('keyword','')
+    unified  = params.get('unified', False)
+
+    new_search = (keyword == '')
     succeeded = False
  
     if keyword == '':
-        new_search = True
         kbd = xbmc.Keyboard()
         kbd.setDefault('')
         kbd.setHeading(_('Search'))
@@ -217,16 +251,27 @@ def search( params ):
     listing = []
     if keyword != '':
         succeeded = True
-        
+        category_list = []
         u_params = {'keyword': keyword}
-        if category in ['all', 'movie']: 
-            movie_list = _api.browse_movie(u_params)
-            listing.extend(make_items(movie_list))
+        if category in ['all', 'movies']:
+            category_list.append('movies')
         if category in ['all', 'tvseries']:
-            tvseries_list = _api.browse_tvseries(u_params)
-            listing.extend(make_items(tvseries_list))
+            category_list.append('tvseries')
+        
+        for cat in category_list:
+            try:
+                video_list = get_video_list(cat, u_params)
+                listing.extend(make_items(video_list))
+            except apivideoaz.VideoAzApiError as err:
+                show_api_error(err)
+                succeeded = False
 
-        if new_search:
+        if succeeded and len(listing) == 0:
+            if not unified:
+                show_info_notification(_('Nothing found!'))
+            succeeded = False
+            
+        if new_search and not unified:
             with plugin.get_storage('__history__.pcl') as storage:
                 history = storage.get('history', [])
                 history.insert(0, {'cat': category, 'keyword': keyword})
@@ -263,12 +308,18 @@ def play( params ):
     check_cookies()
 
     u_params = get_request_params( params )
-    item = _api.get_video_url( u_params )
+    try:
+        item = _api.get_video_url( u_params )
+        succeeded = True
+    except apivideoaz.VideoAzApiError as err:
+        show_api_error(err)
+        item = None
+        succeeded = False
 
-    return plugin.resolve_url(play_item=item)
+    return plugin.resolve_url(play_item=item, succeeded=succeeded)
         
 if __name__ == '__main__':
-    debug = plugin.get_setting('debug')
+    debug = plugin.debug
     if debug: plugin.log_error('%s' % (sys.argv[2]))
 
     _api = init_api()
