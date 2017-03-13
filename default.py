@@ -235,7 +235,7 @@ def search( params ):
 
     category = params.get('cat', 'all')
     keyword  = params.get('keyword','')
-    unified  = params.get('unified', False)
+    usearch  = params.get('usearch', False)
 
     new_search = (keyword == '')
     succeeded = False
@@ -267,11 +267,11 @@ def search( params ):
                 succeeded = False
 
         if succeeded and len(listing) == 0:
-            if not unified:
+            if not usearch:
                 show_info_notification(_('Nothing found!'))
             succeeded = False
             
-        if new_search and not unified:
+        if new_search and not usearch:
             with plugin.get_storage('__history__.pcl') as storage:
                 history = storage.get('history', [])
                 history.insert(0, {'cat': category, 'keyword': keyword})

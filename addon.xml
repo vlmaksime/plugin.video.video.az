@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
-<addon id="plugin.video.video.az" version="0.1.2" name="Video.AZ" provider-name="vl.maksime">
+<addon id="plugin.video.video.az" version="0.1.3" name="Video.AZ" provider-name="vl.maksime">
     <requires>
         <import addon="xbmc.python" version="2.1.0"/>
         <import addon="script.module.requests" version="2.12.4"/>
@@ -22,7 +22,7 @@
         <website>http://video.az/</website>
         <email>vl.maksime@gmail.com</email>
         <source>https://github.com/vlmaksime/plugin.video.video.az</source>
-        <news>v0.1.2 (2017-03-11)[CR]- Добавлена поддержка дополнения 'Unified Search Lite'[CR]- Для повышения скорсти загрузки раздела 'Кино' в настройках добавлен параметр, отключающий загрузку сведений о фильме</news>
+        <news>v0.1.3 (2017-03-12)[CR]- Удалена поддержка дополнения 'Unified Search Lite'[CR]- Добавлена поддержка дополнения 'United Search'</news>
         <assets>
             <icon>icon.png</icon>
             <fanart>fanart.jpg</fanart>
