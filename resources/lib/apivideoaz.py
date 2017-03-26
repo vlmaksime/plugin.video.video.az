@@ -4,7 +4,6 @@
 
 import requests
 import re
-import xml.etree.ElementTree as ET
 
 class VideoAzApiError(Exception):
     def __init__(self, value, code):
@@ -12,7 +11,7 @@ class VideoAzApiError(Exception):
          self.code = code
 
 class videoaz:
- 
+
     def __init__( self, params = {}, debug = False ):
 
         self.__debug = debug
@@ -21,7 +20,7 @@ class videoaz:
         self.__video = []
         self.__tvseries = []
         self.__episodes = []
-        
+
         #Settings
         self.__settings = {'cfduid':        params.get('cfduid'),
                            'episode_title': params.get('episode_title', 'Episode'),
@@ -29,11 +28,11 @@ class videoaz:
                            'video_stream':  params.get('video_stream', 'mp4'),
                            'video_quality': params.get('video_quality', 'HD'),
                            'rating_source': params.get('rating_source', 'imdb')}
-    
-        #Инициализация 
+
+        #Инициализация
         base_url = 'http://api.baku.video'
 
-        #Links example 
+        #Links example
         #http://api.baku.video:80/movie/browse?page=1&category=0&lang=0&genre=0&keyword=
         #http://api.baku.video:80/movie/by_id?id=12077
         #http://api.baku.video:80/tvseries/browse?page=1&keyword=
@@ -44,7 +43,7 @@ class videoaz:
         #http://api.baku.video:80/video/browse?page=1&category=0&keyword=
         #http://api.baku.video:80/category/video
         #http://api.baku.video:80/video/by_id?id=159153
-        
+
         self.__actions = {'main':            {'type': 'get', 'url': base_url + '/main'},
                           'playlist_xml':    {'type': 'get'},
                           #movie
@@ -62,7 +61,7 @@ class videoaz:
 
     def __debuglog( self, string ):
         if self.__debug: print(string)
-        
+
     def __get_setting( self, id, default='' ):
         return self.__settings.get(id, default)
 
@@ -98,8 +97,7 @@ class videoaz:
         return r
 
     def __make_list( self, source, params = {} ):
-        video_list = []
-        
+
         if source == 'movie':
             for movie in self.__movie:
                 video_info = {'type': source,
@@ -111,17 +109,20 @@ class videoaz:
                              'info': { 'video': {'year':          int(movie['year']),
                                                  'title':         title,
                                                  'originaltitle': title_orig,
+                                                 'sorttitle':     title,
                                                  'genre':         movie['genres'],
                                                  'mediatype ':    'movie'} },
                              'art': { 'poster': movie['cover'] },
                              'fanart': movie['cover'].replace('cover','thumb'),
                              'thumb':  movie['cover'].replace('cover','thumb')}
-                
-                video_list.append({'item_info':  item_info,
-                                   'video_info': video_info})
+
+                video_info = {'item_info':  item_info,
+                              'video_info': video_info}
+                yield video_info
+
         elif source == 'tvseries':
             for tvseries in self.__tvseries:
-                
+
                 video_info = {'type':   source,
                               'id':     tvseries['id'],
                               'season': tvseries['season']}
@@ -132,20 +133,23 @@ class videoaz:
                              'info': { 'video': {'title':         title,
                                                  'originaltitle': title_orig,
                                                  'tvshowtitle':   title_orig,
+                                                 'sorttitle':     title,
                                                  'mediatype ':    'tvshow'} },
                              'art': { 'poster': tvseries['cover'] },
                              'fanart': tvseries['cover'].replace('cover','thumb'),
                              'thumb':  tvseries['cover'].replace('cover','thumb')}
-                
-                video_list.append({'item_info':  item_info,
-                                   'video_info': video_info})
+
+                video_info = {'item_info':  item_info,
+                              'video_info': video_info}
+                yield video_info
+
         elif source == 'episodes':
             season_title = self.__get_setting('season_title')
             episode_title = self.__get_setting('episode_title')
-                          
+
             title = self.__tvseries['title']
             title_orig = self.__tvseries['title_original'] if self.__tvseries['title_original'] != '' else self.__tvseries['title']
-            
+
             for episode in self.__episodes:
                 video_info = {'type':       source,
                               'id':         episode['id'],
@@ -160,18 +164,21 @@ class videoaz:
                              'info':  { 'video': {'title':         title_full,
                                                   'originaltitle': title_orig_full,
                                                   'tvshowtitle':   title_orig,
+                                                  'sorttitle':     title,
                                                   'season':        int(params['season']),
                                                   'episode':       int(episode['episode']),
                                                   'mediatype ':    'episode'} },
-                             'art': { 'poster': self.__tvseries['thumb'].replace('thumb','cover') }, 
+                             'art': { 'poster': self.__tvseries['thumb'].replace('thumb','cover') },
                              'fanart': self.__tvseries['thumb'],
                              'thumb':  self.__tvseries['thumb']}
-                
-                video_list.append({'item_info':  item_info,
-                                   'video_info': video_info})
+
+                video_info = {'item_info':  item_info,
+                              'video_info': video_info}
+                yield video_info
+
         elif source == 'seasons':
             season_title = self.__get_setting('season_title')
-                          
+
             title = self.__tvseries['title']
             title_orig = self.__tvseries['title_original'] if self.__tvseries['title_original'] != '' else self.__tvseries['title']
 
@@ -179,22 +186,25 @@ class videoaz:
                 video_info = {'type':       source,
                               'tvserie_id': self.__tvseries['id'],
                               'season':     season}
-                              
-                title_part = '%s %s' % (season_title, season)              
-                title_full = '%s. %s' % (title_part, title)              
-                title_orig_full = '%s. %s' % (title_part, title_orig)              
+
+                title_part = '%s %s' % (season_title, season)
+                title_full = '%s. %s' % (title_part, title)
+                title_orig_full = '%s. %s' % (title_part, title_orig)
                 item_info = {'label':  title_full,
                              'info':  { 'video': {'title':         title_full,
                                                   'originaltitle': title_orig_full,
                                                   'tvshowtitle':   title_orig,
+                                                  'sorttitle':     title,
                                                   'season':        int(season),
                                                   'mediatype ':    'season'} },
-                             'art': { 'poster': self.__tvseries['thumb'].replace('thumb','cover') }, 
+                             'art': { 'poster': self.__tvseries['thumb'].replace('thumb','cover') },
                              'fanart': self.__tvseries['thumb'],
                              'thumb':  self.__tvseries['thumb']}
-                
-                video_list.append({'item_info':  item_info,
-                                   'video_info': video_info})
+
+                video_info = {'item_info':  item_info,
+                              'video_info': video_info}
+                yield video_info
+
         elif source == 'video':
             for video in self.__video:
                 video_info = {'type': source,
@@ -204,13 +214,13 @@ class videoaz:
                              'fanart': video['large'],
                              'thumb':  video['medium'],
                              'info':   { 'video': {'genre':      video['categories'],
+                                                   'sorttitle':  video['title'],
                                                    'mediatype ': 'video'} },
                              'art':    { 'poster': video['medium'] } }
-                
-                video_list.append({'item_info':  item_info,
-                                   'video_info': video_info})
 
-        return video_list
+                video_info = {'item_info':  item_info,
+                              'video_info': video_info}
+                yield video_info
 
     def get_cfduid( self ):
 
@@ -218,7 +228,7 @@ class videoaz:
         cfduid = r.cookies.get('__cfduid', '')
         self.__set_setting('cfduid', cfduid)
         return cfduid
-        
+
     def browse_video( self, params ):
 
         u_params = {'page':     params.get('page', 1),
@@ -227,12 +237,15 @@ class videoaz:
 
         r = self.__http_request('browse_video', u_params)
         j = r.json()
-        
+
         if type(j) == list:
-            return []
-        
-        self.__video = j.get('video', [])
-        return self.__make_list('video')
+            self.__video = []
+        else:
+            self.__video = j.get('video', [])
+
+        result = {'count': len(self.__video),
+                  'list':  self.__make_list('video')}
+        return result
 
     def browse_movie( self, params ):
 
@@ -244,12 +257,15 @@ class videoaz:
 
         r = self.__http_request('browse_movie', u_params)
         j = r.json()
-        
+
         if type(j) == list:
-            return []
-        
-        self.__movie = j.get('movie', [])
-        return self.__make_list('movie')
+            self.__movie = []
+        else:
+            self.__movie = j.get('movie', [])
+
+        result = {'count': len(self.__movie),
+                  'list':  self.__make_list('movie')}
+        return result
 
     def browse_tvseries( self, params ):
 
@@ -258,12 +274,15 @@ class videoaz:
 
         r = self.__http_request('browse_tvseries', u_params)
         j = r.json()
-        
+
         if type(j) == list:
-            return []
-        
-        self.__tvseries = j.get('tvseries', [])
-        return self.__make_list('tvseries')
+            self.__tvseries = []
+        else:
+            self.__tvseries = j.get('tvseries', [])
+
+        result = {'count': len(self.__tvseries),
+                  'list':  self.__make_list('tvseries')}
+        return result
 
     def browse_episodes( self, params ):
 
@@ -272,10 +291,14 @@ class videoaz:
 
         r = self.__http_request('browse_episodes', u_params)
         j = r.json()
-        
+
         self.__episodes = j.get('episodes', [])
         self.__tvseries = j.get('tvseries')
-        return self.__make_list('episodes', params )
+
+        result = {'count': len(self.__episodes),
+                  'title': self.__tvseries['title'],
+                  'list':  self.__make_list('episodes', params )}
+        return result
 
     def browse_seasons( self, params ):
 
@@ -284,23 +307,24 @@ class videoaz:
 
         r = self.__http_request('browse_episodes', u_params)
         j = r.json()
-        
+
         self.__episodes = j.get('episodes', [])
         self.__tvseries = j.get('tvseries')
-        if len(self.__tvseries['season_list']) > 1:
-            return self.__make_list('seasons')
-        else:
-            return self.__make_list('episodes', params )
+
+        result = {'count': len(self.__tvseries['season_list']),
+                  'title': self.__tvseries['title'],
+                  'list':  self.__make_list('seasons')}
+        return result
 
     def get_movie_details( self, id):
         u_params = {'id': id}
-        
+
         r = self.__http_request('get_info_movie', u_params)
         j = r.json()
         movie = j['player']
 
         rating_field = self.__get_setting('rating_source') + '_rating'
-        
+
         duration_str = movie['duration']
         duration_sec = 0
         for part in duration_str.split(':'):
@@ -312,23 +336,53 @@ class videoaz:
                    'video_quality': movie['video_quality'],
                    'duration': duration_sec,
                    'plot': re.sub(r'\<[^>]*\>', '', movie['description'])}
-                   
+
         return details
+
+    def category_video( self ):
+        r = self.__http_request('category_video')
+        j = r.json()
+
+        list = []
+        for item in j:
+            list.append(j[item])
+
+        return list
+
+    def category_movie( self ):
+        r = self.__http_request('category_movie')
+        j = r.json()
+
+        list = []
+        for item in j:
+            list.append(j[item])
+
+        return list
+
+    def category_genre( self ):
+        r = self.__http_request('category_genre')
+        j = r.json()
+
+        list = []
+        for item in j:
+            list.append(j[item])
+
+        return list
 
     def get_video_url( self, params ):
         video_stream  = self.__get_setting('video_stream')
         video_quality = self.__get_setting('video_quality')
-        
+
         type = params['type']
         if type == 'movie':
             u_params = {'id': params['id']}
-            
+
             r = self.__http_request('get_info_movie', u_params)
             j = r.json()
             self.__movie = j['player']
 
             mp4_path = self.__movie['video']
-            
+
             item_info = {'label':  self.__movie['title'],
                          'art':    { 'poster': self.__movie['thumb'].replace('thumb','cover') },
                          'info':   { 'video': {'mediatype ': 'movie'} },
@@ -338,7 +392,7 @@ class videoaz:
         elif type == 'episodes':
             u_params = {'tvserie_id': params['tvserie_id'],
                         'season':     params['season']}
-                        
+
             r = self.__http_request('browse_episodes', u_params)
             j = r.json()
             self.__episodes = j.get('episodes', [])
@@ -348,7 +402,7 @@ class videoaz:
                     u_params['episode'] = episode['episode']
                     mp4_path = episode['video']
 
-                    label = '%s. %s %s %s %s' % (self.__tvseries['title'], self.__get_setting('season_title'), params['season'], self.__get_setting('episode_title'), episode['episode'])              
+                    label = '%s. %s %s %s %s' % (self.__tvseries['title'], self.__get_setting('season_title'), params['season'], self.__get_setting('episode_title'), episode['episode'])
                     item_info = {'label':  label,
                                  'art':    { 'poster': self.__tvseries['thumb'].replace('thumb','cover') },
                                  'info':   { 'video': {'mediatype ': 'movie'} },
@@ -356,13 +410,13 @@ class videoaz:
                                  'thumb':  self.__tvseries['thumb']}
         elif type == 'video':
             u_params = {'id': params['id']}
-            
+
             r = self.__http_request('get_info_video', u_params)
             j = r.json()
             self.__video = j['player']
 
             mp4_path = self.__video['video_sd']
-            
+
             item_info = {'label':  self.__video['title'],
                          'info': { 'video': {'genre': self.__video['categories'],
                                                    'mediatype ': 'video'} },
@@ -374,22 +428,27 @@ class videoaz:
             path = m3u8_path if m3u8_path != '' else mp4_path
         else:
             path = mp4_path
-        
+
         if type == 'video' and video_quality == 'HD' and self.__video['is_hd'] == '1':
             path = path.replace('sd.mp4', 'hd.mp4')
 
         item_info['path'] = path
         return item_info
-        
+
     def __get_playlist_url( self, type, params ):
-        
+        import xml.etree.cElementTree as etree
+        try:
+            etree.fromstring('<?xml version="1.0"?><foo><bar/></foo>')
+        except TypeError:
+            import xml.etree.ElementTree as etree
+
         if type == 'movie':
             xml_url = 'http://video.az/jw/movie/xml/%s' % (params['id'])
         elif type == 'episodes':
             xml_url = 'http://video.az/jw/tvseries/xml/%s/%s/%s' % (params['tvserie_id'], params['season'], params['episode'])
         elif type == 'video':
             xml_url = 'http://video.az/jw/video/xml/%s' % (params['id'])
-        else: 
+        else:
             xml_url = ''
 
         file = ''
@@ -400,7 +459,7 @@ class videoaz:
             except VideoAzApiError:
                 return file
 
-            root = ET.fromstring(r.text.encode('utf-8'))
+            root = etree.fromstring(r.text.encode('utf-8'))
             for sources in root.iter('{http://rss.jwpcdn.com/}source'):
                 curfile = sources.attrib.get('file')
                 if curfile[-4:] == 'm3u8':

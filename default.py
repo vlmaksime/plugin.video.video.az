@@ -6,43 +6,28 @@ import resources.lib.apivideoaz as apivideoaz
 import xbmcgui
 from simpleplugin import Plugin
 from urllib import urlencode
-import xbmcgui
+import xbmc
 
 # Create plugin instance
 plugin = Plugin()
 _ = plugin.initialize_gettext()
 
 def init_api():
-    settings_list = ['cfduid', 'video_stream', 'video_quality']
+    settings_list = ['cfduid', 'video_stream', 'video_quality', 'rating_source']
 
     settings = {}
     for id in settings_list:
-        settings[id] = plugin.get_setting(id)
+        if id == 'rating_source':
+            rating_source = plugin.movie_rating
+            if rating_source == 0: settings[id] = 'imdb'
+            elif rating_source == 1: settings[id] = 'kinopoisk'
+        else:
+            settings[id] = plugin.get_setting(id)
 
     settings['episode_title'] = _('Episode').decode('utf-8')
     settings['season_title']  = _('Season').decode('utf-8')
 
     return apivideoaz.videoaz(settings)
-
-def get_categories():
-    categories = [{'action': 'list_videos',    'label': _('Videos'),    'params': {'cat': 'videos'}},
-                  {'action': 'list_videos',    'label': _('Movies'),    'params': {'cat': 'movies'}},
-                  {'action': 'list_videos',    'label': _('TV Series'), 'params': {'cat': 'tvseries'}},
-                  {'action': 'search_history', 'label': _('Search')}]
-
-    return categories
-
-def get_setting(id):
-    value = plugin.get_setting(id)
-
-    if id == 'movie_lang':
-        if   value == 1: return 'az'
-        elif value == 2: return 'ru'
-        elif value == 3: return 'en'
-        elif value == 4: return 'tr'
-        else: return '0'
-    else:
-        return value
 
 def show_api_error(err):
     text = ''
@@ -50,19 +35,19 @@ def show_api_error(err):
         text = _('Connection error')
     else:
         text = str(err)
-    xbmcgui.Dialog().notification(plugin._addon.getAddonInfo('name'), text, xbmcgui.NOTIFICATION_ERROR)
+    xbmcgui.Dialog().notification(plugin.addon.getAddonInfo('name'), text, xbmcgui.NOTIFICATION_ERROR)
 
-def show_info_notification(text):
+def show_notification(text):
     xbmcgui.Dialog().notification(plugin.addon.getAddonInfo('name'), text)
 
 def check_cookies():
-    if len(plugin.cfduid) == 0:
+    if not plugin.cfduid:
         try:
             cfduid = _api.get_cfduid()
             plugin.set_setting('cfduid', cfduid)
         except apivideoaz.VideoAzApiError as err:
             show_api_error(err)
-            
+
 def get_request_params( params ):
     result = {}
     for param in params:
@@ -70,17 +55,203 @@ def get_request_params( params ):
             result[param[1:]] = params[param]
     return result
 
-def make_items(video_list):
-    listing = []
+@plugin.action()
+def root( params ):
+    listing = list_root()
+    return plugin.create_listing(listing, content='files')
 
-    use_atl_names = plugin.use_atl_names
-    movie_details = plugin.movie_details
-    
-    for video in video_list:
-        item_info = video['item_info']
+def list_root():
+    items = [{'action': 'list_videos',    'label': _('Videos'),    'params': {'cat': 'videos'}},
+             {'action': 'list_videos',    'label': _('Movies'),    'params': {'cat': 'movies'}},
+             {'action': 'list_videos',    'label': _('TV Series'), 'params': {'cat': 'tvseries'}},
+             {'action': 'search_history', 'label': _('Search')}]
 
-        video_info = video['video_info']
+    for item in items:
+        params = item.get('params',{})
+        url = plugin.get_url(action=item['action'], **params)
+
+        list_item = {'label':  item['label'],
+                     'url':    url,
+                     'icon':   plugin.icon,
+                     'fanart': plugin.fanart}
+        yield list_item
+
+@plugin.action()
+def list_videos( params ):
+    cur_cat  = params['cat']
+    cur_page = int(params.get('_page', '1'))
+    content  = get_category_content(cur_cat)
+
+    update_listing = (params.get('update_listing')=='True')
+    if update_listing:
+        del params['update_listing']
+    else:
+        update_listing = (int(params.get('_page','1')) > 1)
+
+    dir_params = {}
+    dir_params.update(params)
+    del dir_params['action']
+    if cur_page > 1:
+        del dir_params['_page']
+
+    check_cookies()
+
+    u_params = get_request_params(params)
+
+    try:
+        video_list = get_video_list(cur_cat, u_params)
+        succeeded = True
+    except apivideoaz.VideoAzApiError as err:
+        show_api_error(err)
+        succeeded = False
+
+    if cur_cat in ['videos', 'movies', 'tvseries']:
+        category = '%s %d' % (_('Page'), cur_page)
+    else:
+        category = video_list.get('title')
+
+    if succeeded and cur_cat == 'seasons' and video_list['count'] == 1:
+        listing = []
+        dir_params['cat'] = 'episodes'
+        url = plugin.get_url(action='list_videos', **dir_params)
+        xbmc.executebuiltin('Container.Update("%s")' % url)
+        return
+
+    if succeeded:
+        listing = make_video_list(video_list, params, dir_params)
+    else:
+        listing = []
+
+    return plugin.create_listing(listing, content=content, succeeded=succeeded, update_listing=update_listing, category=category)
+
+def get_category_content( cat ):
+    if cat == 'tvseries':
+        content = 'tvshows'
+    elif cat == 'seasons':
+        content = 'tvshows'
+    elif cat == 'videos':
+        content = 'episodes'
+    elif not cat:
+        content = 'files'
+    else:
+        content = cat
+    return content
+
+def get_video_list(cat, u_params):
+    if cat == 'movies':
+        video_list = _api.browse_movie(u_params)
+    elif cat == 'tvseries':
+        video_list = _api.browse_tvseries(u_params)
+    elif cat == 'seasons':
+        video_list = _api.browse_seasons(u_params)
+    elif cat == 'episodes':
+        video_list = _api.browse_episodes(u_params)
+    elif cat == 'videos':
+        video_list = _api.browse_video(u_params)
+
+    return video_list
+
+def make_video_list( video_list, params={}, dir_params = {}, search=False ):
+    cur_cat  = params.get('cat', '')
+    keyword  = params.get('_keyword', '')
+    cur_page = int(params.get('_page', '1'))
+
+    use_pages    = not search and not keyword and (cur_cat in ['movies', 'tvseries', 'videos'])
+    use_search   = not search and (cur_cat in ['movies', 'tvseries', 'videos'])
+    use_category = not search and (cur_cat in ['movies', 'videos'])
+    use_genre    = not search and (cur_cat in ['movies'])
+    use_lang     = not search and (cur_cat in ['movies'])
+
+    if use_search:
+
+        url = plugin.get_url(action='search_category', **dir_params)
+        label = make_category_label('yellowgreen', _('Search'), keyword)
+        list_item = {'label': label,
+                     'is_folder':   False,
+                     'is_playable': False,
+                     'url':    url,
+                     'icon':   plugin.icon,
+                     'fanart': plugin.fanart}
+        yield list_item
+
+    if use_category:
+
+        list = get_category(cur_cat)
+
+        cur_category = params.get('_category','0')
+
+        url = plugin.get_url(action='select_category', **dir_params)
+        label = make_category_label('blue', _('Categories'), get_category_name(list, cur_category))
+        list_item = {'label': label,
+                     'is_folder':   False,
+                     'is_playable': False,
+                     'url':    url,
+                     'icon':   plugin.icon,
+                     'fanart': plugin.fanart}
+        yield list_item
+
+    if use_genre:
+
+        list = get_genre(cur_cat)
+
+        cur_genre = params.get('_genre','0')
+
+        url = plugin.get_url(action='select_genre', **dir_params)
+        label = make_category_label('blue', _('Genres'), get_category_name(list, cur_genre))
+        list_item = {'label': label,
+                     'is_folder':   False,
+                     'is_playable': False,
+                     'url':    url,
+                     'icon':   plugin.icon,
+                     'fanart': plugin.fanart}
+        yield list_item
+
+    if use_lang:
+
+        list = get_lang()
+
+        cur_lang = params.get('_lang')
+
+        url = plugin.get_url(action='select_lang', **dir_params)
+        label = make_category_label('blue', _('Language'), get_lang_name(list, cur_lang))
+        list_item = {'label': label,
+                     'is_folder':   False,
+                     'is_playable': False,
+                     'url':    url,
+                     'icon':   plugin.icon,
+                     'fanart': plugin.fanart}
+        yield list_item
+
+    count = video_list['count']
+    for video_item in video_list['list']:
+        yield make_item(video_item)
+
+    if use_pages:
+        if cur_page > 1:
+            if cur_page == 2:
+                del params['_page']
+            else:
+                params['_page'] = cur_page - 1
+            url = plugin.get_url(**params)
+            item_info = {'label': _('Previous page...'),
+                         'url':   url}
+            yield item_info
+
+        if count >= 20:
+            params['_page'] = cur_page + 1
+            url = plugin.get_url(**params)
+            item_info = {'label': _('Next page...'),
+                         'url':   url}
+            yield item_info
+
+def make_item( video_item ):
+        item_info = video_item['item_info']
+
+        video_info = video_item['video_info']
         video_type = video_info['type']
+
+        use_atl_names = plugin.use_atl_names
+        movie_details = plugin.movie_details
 
         if video_type == 'movie':
             is_playable = True
@@ -97,12 +268,12 @@ def make_items(video_list):
 
             if movie_details:
                 details = get_movie_details(video_info['id'])
-                
+
                 if not use_atl_names and details['video_quality'] != '':
                     label_list.append(' [%s]' % details['video_quality'])
                 del details['video_quality']
                 item_info['info']['video'].update(details)
-           
+
             item_info['label'] = ''.join(label_list)
 
             del item_info['info']['video']['title']
@@ -134,113 +305,70 @@ def make_items(video_list):
 
         item_info['url'] = url
         item_info['is_playable'] = is_playable
-            
-        listing.append(item_info)
 
-    return listing
+        return item_info
+
+def make_category_label( color, title, category ):
+    label_parts = []
+    label_parts.append('[COLOR=%s][B]' % color)
+    label_parts.append(title)
+    label_parts.append(':[/B] ')
+    label_parts.append(category)
+    label_parts.append('[/COLOR]')
+    return ''.join(label_parts)
 
 @plugin.cached(180)
 def get_movie_details( id ):
     return _api.get_movie_details(id)
 
-    
-@plugin.action()
-def root( params ):
-
-    listing = []
-
-    categories = get_categories()
-    for category in categories:
-        url = plugin.get_url(action=category['action'])
- 
-        params = category.get('params')
-        if params != None:
-            url = url + '&' + urlencode(params)
-
-        listing.append({
-            'label': category['label'],
-            'url': url,
-            'icon': plugin.icon,
-            'fanart': plugin.fanart
-        })
-
-    return plugin.create_listing(listing, content='files')
-
-@plugin.action()
-def list_videos( params ):
-    content='files'
-
-    check_cookies()
-    
-    u_params = get_request_params(params)
-
-    use_pages = False
-    
-    if params['cat'] == 'movies':
-        u_params['lang'] = get_setting('movie_lang')
-        use_pages = True
-        content='movies'
-    elif params['cat'] == 'tvseries':
-        use_pages = True
-        content='tvshows'
-    elif params['cat'] == 'seasons':
-        content='tvshows'
-    elif params['cat'] == 'episodes':
-        content='episodes'
-    elif params['cat'] == 'videos':
-        use_pages = True
-        content='episodes'
-
-    try:
-        video_list = get_video_list(params['cat'], u_params)
-        succeeded = True
-    except apivideoaz.VideoAzApiError as err:
-        show_api_error(err)
-        video_list = []
-        succeeded = False
-        
-
-    listing = make_items(video_list)
-    
-    if use_pages and len(video_list) >= 20:
-        params['_page'] = int(params.get('_page', 1)) + 1
-        url = plugin.get_url(action='list_videos')
-        del params['action']
-        url = url + '&' + urlencode(params)
-        listing.append({
-            'label': _('Next page...'),
-            'url': url})
-         
-    return plugin.create_listing(listing, content=content, succeeded=succeeded)
-
-def get_video_list(cat, u_params):
+@plugin.cached(180)
+def get_category( cat ):
     if cat == 'movies':
-        video_list = _api.browse_movie(u_params)
-    elif cat == 'tvseries':
-        video_list = _api.browse_tvseries(u_params)
-    elif cat == 'seasons':
-        video_list = _api.browse_seasons(u_params)
-    elif cat == 'episodes':
-        video_list = _api.browse_episodes(u_params)
+        list = _api.category_movie()
     elif cat == 'videos':
-        video_list = _api.browse_video(u_params)
-        
-    return video_list
+        list = _api.category_video()
+    return list
+
+@plugin.cached(180)
+def get_genre( cat ):
+    if cat == 'movies':
+        list = _api.category_genre()
+    return list
+
+@plugin.cached(180)
+def get_lang():
+    list = []
+    list.append({'id': 'az', 'title': _('Azərbaycanca')})
+    list.append({'id': 'ru', 'title': _('Русский')})
+    list.append({'id': 'en', 'title': _('English')})
+    list.append({'id': 'tr', 'title': _('Türkçe')})
+
+    return list
+
+def get_category_name( list, id ):
+    for item in list:
+        if item['id'] == id:
+            return item['title'].encode('utf-8')
+    return _('All')
+
+def get_lang_name( list, id ):
+    for item in list:
+        if item['id'] == id:
+            return item['title']
+    return _('All')
 
 @plugin.action()
 def search( params ):
-    history_length = 10
-    
+
     check_cookies()
 
-    category = params.get('cat', 'all')
-    keyword  = params.get('keyword','')
-    usearch  = params.get('usearch', False)
+    keyword  = params.get('keyword', '')
+    usearch  = (params.get('usearch') == 'True')
 
     new_search = (keyword == '')
     succeeded = False
- 
-    if keyword == '':
+
+    if not keyword:
         kbd = xbmc.Keyboard()
         kbd.setDefault('')
         kbd.setHeading(_('Search'))
@@ -248,60 +376,103 @@ def search( params ):
         if kbd.isConfirmed():
             keyword = kbd.getText()
 
-    listing = []
-    if keyword != '':
+    if keyword and new_search and not usearch:
+        with plugin.get_storage('__history__.pcl') as storage:
+            history = storage.get('history', [])
+            history.insert(0, {'keyword': keyword})
+            if len(history) > plugin.history_length:
+                history.pop(-1)
+            storage['history'] = history
+
+        params['keyword'] = keyword
+        url = plugin.get_url(**params)
+        xbmc.executebuiltin('Container.Update("%s")' % url)
+        return
+
+    if keyword:
         succeeded = True
         category_list = []
         u_params = {'keyword': keyword}
-        if category in ['all', 'movies']:
+
+        us_movies = usearch and plugin.us_movies
+        search_movies = not usearch and plugin.search_movies
+        if us_movies or search_movies:
             category_list.append('movies')
-        if category in ['all', 'tvseries']:
+
+        us_tvseries = usearch and plugin.us_tvseries
+        search_tvseries = not usearch and plugin.search_tvseries
+        if us_tvseries or search_tvseries:
             category_list.append('tvseries')
-        
+
+        us_videos = usearch and plugin.us_videos
+        search_videos = not usearch and plugin.search_videos
+        if us_videos or search_videos:
+            category_list.append('videos')
+
+        video_items = []
         for cat in category_list:
             try:
                 video_list = get_video_list(cat, u_params)
-                listing.extend(make_items(video_list))
             except apivideoaz.VideoAzApiError as err:
                 show_api_error(err)
                 succeeded = False
 
-        if succeeded and len(listing) == 0:
-            if not usearch:
-                show_info_notification(_('Nothing found!'))
+            if succeeded and video_list['count']:
+                for video_item in video_list['list']:
+                    video_items.append(video_item)
+
+        if succeeded and len(video_items) == 0:
             succeeded = False
-            
-        if new_search and not usearch:
-            with plugin.get_storage('__history__.pcl') as storage:
-                history = storage.get('history', [])
-                history.insert(0, {'cat': category, 'keyword': keyword})
-                if len(history) > plugin.history_length:
-                    history.pop(-1)
-                storage['history'] = history
-        
-    return plugin.create_listing(listing, succeeded = succeeded, content='movies')
+            if not usearch:
+                show_notification(_('Nothing found!'))
+
+    if succeeded:
+        search_list = {'count': len(video_items),
+                       'list': video_items}
+        listing = make_video_list(search_list, search=True)
+    else:
+        listing = []
+
+    return plugin.create_listing(listing, succeeded = succeeded, content='movies', category=keyword, sort_methods=[27])
 
 @plugin.action()
-def search_history( params ):
-    history_length = 10
-    
+def search_category( params ):
+
+    category = params.get('cat')
+    keyword = params.get('_keyword', '')
+
+    kbd = xbmc.Keyboard()
+    kbd.setDefault(keyword)
+    kbd.setHeading(_('Search'))
+    kbd.doModal()
+    if kbd.isConfirmed():
+        keyword = kbd.getText()
+
+    params['_keyword'] = keyword
+    del params['action']
+    url = plugin.get_url(action='list_videos', update_listing=True, **params)
+    xbmc.executebuiltin('Container.Update("%s")' % url)
+
+@plugin.action()
+def search_history():
+
     with plugin.get_storage('__history__.pcl') as storage:
         history = storage.get('history', [])
 
-        if len(history) > history_length:
-            history[history_length - len(history):] = []
+        if len(history) > plugin.history_length:
+            history[plugin.history_length - len(history):] = []
             storage['history'] = history
 
     listing = []
     listing.append({'label': _('New Search...'),
-                    'url': plugin.get_url(action='search', cat='all')})
+                    'url': plugin.get_url(action='search')})
 
     for item in history:
         listing.append({'label': item['keyword'],
-                        'url': plugin.get_url(action='search', cat=item['cat'], keyword=item['keyword'])})
+                        'url': plugin.get_url(action='search', keyword=item['keyword'])})
 
     return plugin.create_listing(listing, content='movies')
-    
+
 @plugin.action()
 def play( params ):
 
@@ -317,10 +488,61 @@ def play( params ):
         succeeded = False
 
     return plugin.resolve_url(play_item=item, succeeded=succeeded)
-        
-if __name__ == '__main__':
-    debug = plugin.debug
-    if debug: plugin.log_error('%s' % (sys.argv[2]))
 
+@plugin.action()
+def select_category( params ):
+    list = get_category( params['cat'])
+    list.insert(0, {'id': '0', 'title': _('All')})
+    titles = []
+    for list_item in list:
+        titles.append(list_item['title'])
+    ret = xbmcgui.Dialog().select(_('Categories'), titles)
+    if ret >= 0:
+        category = list[ret]['id']
+        if category == '0' and params.get('_category'):
+            del params['_category']
+        else:
+            params['_category'] = category
+        del params['action']
+        url = plugin.get_url(action='list_videos', update_listing=True, **params)
+        xbmc.executebuiltin('Container.Update("%s")' % url)
+
+@plugin.action()
+def select_genre( params ):
+    list = get_genre( params['cat'])
+    list.insert(0, {'id': '0', 'title': _('All')})
+    titles = []
+    for list_item in list:
+        titles.append(list_item['title'])
+    ret = xbmcgui.Dialog().select(_('Genres'), titles)
+    if ret >= 0:
+        genre = list[ret]['id']
+        if genre == '0' and params.get('_genre'):
+            del params['_genre']
+        else:
+            params['_genre'] = genre
+        del params['action']
+        url = plugin.get_url(action='list_videos', update_listing=True, **params)
+        xbmc.executebuiltin('Container.Update("%s")' % url)
+
+@plugin.action()
+def select_lang( params ):
+    list = get_lang()
+    list.insert(0, {'id': '0', 'title': _('All')})
+    titles = []
+    for list_item in list:
+        titles.append(list_item['title'])
+    ret = xbmcgui.Dialog().select(_('Language'), titles)
+    if ret >= 0:
+        lang = list[ret]['id']
+        if lang == '0' and params.get('_lang'):
+            del params['_lang']
+        else:
+            params['_lang'] = lang
+        del params['action']
+        url = plugin.get_url(action='list_videos', update_listing=True, **params)
+        xbmc.executebuiltin('Container.Update("%s")' % url)
+
+if __name__ == '__main__':
     _api = init_api()
     plugin.run()

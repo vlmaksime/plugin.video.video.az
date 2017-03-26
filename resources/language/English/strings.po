@@ -59,7 +59,7 @@ msgid "Video Quality"
 msgstr ""
 
 msgctxt "#30012"
-msgid "Movie Language"
+msgid "Page"
 msgstr ""
 
 msgctxt "#30013"
@@ -91,5 +91,41 @@ msgid "Show Movie info in list (slower)"
 msgstr ""
 
 msgctxt "#30020"
-msgid "Use for search from 'Unified search' addon"
+msgid "Previous page..."
+msgstr ""
+
+msgctxt "#30021"
+msgid "Categories"
+msgstr ""
+
+msgctxt "#30022"
+msgid "Genres"
+msgstr ""
+
+msgctxt "#30023"
+msgid "Language"
+msgstr ""
+
+msgctxt "#30024"
+msgid "Rating source"
+msgstr ""
+
+msgctxt "#30025"
+msgid "iMDB"
+msgstr ""
+
+msgctxt "#30026"
+msgid "KinoPoisk"
+msgstr ""
+
+msgctxt "#30027"
+msgid "United Search"
+msgstr ""
+
+msgctxt "#30028"
+msgid "Sections for search"
+msgstr ""
+
+msgctxt "#30029"
+msgid "Search history length"
 msgstr ""

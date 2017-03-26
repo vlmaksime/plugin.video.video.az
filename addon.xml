@@ -1,9 +1,9 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
-<addon id="plugin.video.video.az" version="0.1.3" name="Video.AZ" provider-name="vl.maksime">
+<addon id="plugin.video.video.az" version="0.1.4" name="Video.AZ" provider-name="vl.maksime">
     <requires>
         <import addon="xbmc.python" version="2.1.0"/>
         <import addon="script.module.requests" version="2.12.4"/>
-        <import addon="script.module.simpleplugin" version="2.1.0"/>
+        <import addon="script.module.simpleplugin" version="2.2.0"/>
     </requires>
     <extension point="xbmc.python.pluginsource" library="default.py">
         <provides>video</provides>
@@ -22,7 +22,7 @@
         <website>http://video.az/</website>
         <email>vl.maksime@gmail.com</email>
         <source>https://github.com/vlmaksime/plugin.video.video.az</source>
-        <news>v0.1.3 (2017-03-12)[CR]- Удалена поддержка дополнения 'Unified Search Lite'[CR]- Добавлена поддержка дополнения 'United Search'</news>
+        <news>v0.1.4 (2017-03-26)[CR]- Переделана система навигации по разделам.[CR]- Добавлена возможность выполнять поиск по текущему разделу[CR]- В разделах добавлен отбор по жанру, категории, дубляжу[CR]- Из настроек убран пункт с дубляжем[CR]- В настройках можно выбрать разделы, по которым будет выполняться поиск через доплонение или в United Search</news>
         <assets>
             <icon>icon.png</icon>
             <fanart>fanart.jpg</fanart>

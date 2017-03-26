@@ -36,7 +36,7 @@ msgstr "Серия"
 
 msgctxt "#30006"
 msgid "Next page..."
-msgstr "Далее..."
+msgstr "Следующая страница..."
 
 msgctxt "#30007"
 msgid "New Search..."
@@ -59,8 +59,8 @@ msgid "Video Quality"
 msgstr "Качество видео"
 
 msgctxt "#30012"
-msgid "Movie Language"
-msgstr "Дубляж"
+msgid "Page"
+msgstr "Страница"
 
 msgctxt "#30013"
 msgid "All"
@@ -91,5 +91,41 @@ msgid "Show Movie info in list (slower)"
 msgstr "Показывать описание в списке (медленнее)"
 
 msgctxt "#30020"
-msgid "Use for search from 'Unified search' addon"
-msgstr "Использовать для поиска в дополнении 'Unified search'"
+msgid "Previous page..."
+msgstr "Предыдущая страница..."
+
+msgctxt "#30021"
+msgid "Categories"
+msgstr "Категории"
+
+msgctxt "#30022"
+msgid "Genres"
+msgstr "Жанры"
+
+msgctxt "#30023"
+msgid "Language"
+msgstr "Дубляж"
+
+msgctxt "#30024"
+msgid "Rating source"
+msgstr "Источник рейтинга"
+
+msgctxt "#30025"
+msgid "iMDB"
+msgstr ""
+
+msgctxt "#30026"
+msgid "KinoPoisk"
+msgstr "КиноПоиск"
+
+msgctxt "#30027"
+msgid "United Search"
+msgstr ""
+
+msgctxt "#30028"
+msgid "Sections for search"
+msgstr "Разделы для поиска"
+
+msgctxt "#30029"
+msgid "Search history length"
+msgstr "Длина истории поиска"
