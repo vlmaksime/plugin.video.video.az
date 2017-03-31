@@ -331,8 +331,10 @@ class videoaz:
             duration_sec = duration_sec * 60 + int(part)
 
         details = {'rating': float(movie[rating_field]),
-                   'cast': movie['actors'].split(','),
+                   'cast': movie['actors'].split(',') if movie['actors'] else [],
                    'director': movie['director'],
+                   'writer': movie['script'],
+                   'tagline': movie['slogan'],
                    'video_quality': movie['video_quality'],
                    'duration': duration_sec,
                    'plot': re.sub(r'\<[^>]*\>', '', movie['description'])}
