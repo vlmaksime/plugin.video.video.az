@@ -321,24 +321,9 @@ class videoaz:
 
         r = self.__http_request('get_info_movie', u_params)
         j = r.json()
-        movie = j['player']
+        self.__movie = j['player']
 
-        rating_field = self.__get_setting('rating_source') + '_rating'
-
-        duration_str = movie['duration']
-        duration_sec = 0
-        for part in duration_str.split(':'):
-            duration_sec = duration_sec * 60 + int(part)
-
-        details = {'rating': float(movie[rating_field]),
-                   'cast': movie['actors'].split(',') if movie['actors'] else [],
-                   'director': movie['director'],
-                   'writer': movie['script'],
-                   'tagline': movie['slogan'],
-                   'video_quality': movie['video_quality'],
-                   'duration': duration_sec,
-                   'plot': re.sub(r'\<[^>]*\>', '', movie['description'])}
-
+        details = self.__get_details('movie')
         return details
 
     def category_video( self ):
@@ -387,9 +372,13 @@ class videoaz:
 
             item_info = {'label':  self.__movie['title'],
                          'art':    { 'poster': self.__movie['thumb'].replace('thumb','cover') },
-                         'info':   { 'video': {'mediatype ': 'movie'} },
+                         'info':   { 'video': {'mediatype': 'movie'} },
                          'fanart': self.__movie['thumb'],
                          'thumb':  self.__movie['thumb']}
+
+            details = self.__get_details('movie')
+            del details['video_quality']
+            item_info['info']['video'].update(details)
 
         elif type == 'episodes':
             u_params = {'tvserie_id': params['tvserie_id'],
@@ -407,7 +396,7 @@ class videoaz:
                     label = '%s. %s %s %s %s' % (self.__tvseries['title'], self.__get_setting('season_title'), params['season'], self.__get_setting('episode_title'), episode['episode'])
                     item_info = {'label':  label,
                                  'art':    { 'poster': self.__tvseries['thumb'].replace('thumb','cover') },
-                                 'info':   { 'video': {'mediatype ': 'movie'} },
+                                 'info':   { 'video': {'mediatype': 'movie'} },
                                  'fanart': self.__tvseries['thumb'],
                                  'thumb':  self.__tvseries['thumb']}
         elif type == 'video':
@@ -421,7 +410,7 @@ class videoaz:
 
             item_info = {'label':  self.__video['title'],
                          'info': { 'video': {'genre': self.__video['categories'],
-                                                   'mediatype ': 'video'} },
+                                                   'mediatype': 'video'} },
                          'fanart': self.__video['large'],
                          'thumb':  self.__video['medium']}
 
@@ -469,3 +458,29 @@ class videoaz:
                     break
 
         return file
+    
+    def __get_details(self, type):
+        rating_field = self.__get_setting('rating_source') + '_rating'
+
+        if type == 'movie':
+            movie = self.__movie
+            
+            duration_str = movie['duration']
+            duration_sec = 0
+            for part in duration_str.split(':'):
+                duration_sec = duration_sec * 60 + int(part)
+
+            details = {'rating':   float(movie[rating_field]),
+                       'genre':    movie['genres'], #.split(', ') if movie['genres'] else [],
+                       'cast':     movie['actors'].split(', ') if movie['actors'] else [],
+                       'country':  movie['country'], #.split(', ') if movie['country'] else [],
+                       'director': movie['director'],
+                       'writer':   movie['script'],
+                       'tagline':  movie['slogan'],
+                       'video_quality': movie['video_quality'],
+                       'duration': duration_sec,
+                       'plot':     re.sub(r'\<[^>]*\>', '', movie['description'])}
+        else:
+            details = {}
+        return details
+    
