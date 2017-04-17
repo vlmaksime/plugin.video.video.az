@@ -4,6 +4,7 @@
         <import addon="xbmc.python" version="2.1.0"/>
         <import addon="script.module.requests" version="2.12.4"/>
         <import addon="script.module.simpleplugin" version="2.2.0"/>
+        <import addon="script.module.html2text" version="2015.6.21"/>
     </requires>
     <extension point="xbmc.python.pluginsource" library="default.py">
         <provides>video</provides>

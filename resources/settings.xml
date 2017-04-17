@@ -5,21 +5,21 @@
         <setting label="30029" type="labelenum" id="history_length" values="5|10|15|20|25" default="10" />
         <setting label="30010" type="labelenum" id="video_stream" lvalues="mp4|m3u8" default="mp4"/>
         <setting label="30003" type="lsep"/>
-        <setting label="30011" type="labelenum" id="video_quality" subsetting="true" lvalues="SD|HD" default="HD"/>
+        <setting label="30011" type="labelenum" id="video_quality" lvalues="SD|HD" default="HD"/>
         <setting label="30000" type="lsep"/>
-        <setting label="30024" type="labelenum" id="movie_rating" subsetting="true" lvalues="30025|30026" default="0" />
-        <setting label="30019" type="bool" id="movie_details" subsetting="true" default="false"/>
+        <setting label="30024" type="labelenum" id="movie_rating" lvalues="30025|30026" default="0" />
+        <setting label="30019" type="bool" id="movie_details" default="true"/>
         <setting label="30028" type="lsep"/>
-        <setting label="30000" type="bool" id="search_movies" subsetting="true" default="true" />
-        <setting label="30001" type="bool" id="search_tvseries" subsetting="true" default="true" />
-        <setting label="30003" type="bool" id="search_videos" subsetting="true" default="false" />
+        <setting label="30000" type="bool" id="search_movies" default="true" />
+        <setting label="30001" type="bool" id="search_tvseries" default="true" />
+        <setting label="30003" type="bool" id="search_videos" default="false" />
     </category>
     <category label="30027">
         <setting type="bool" id="united_search" visible="false" default="false" />
         <setting type="text" id="us_command" visible="false" default="action=search&keyword=" />
         <setting label="30028" type="lsep"/>
-        <setting label="30000" type="bool" id="us_movies" subsetting="true" default="true" />
-        <setting label="30001" type="bool" id="us_tvseries" subsetting="true" default="true" />
-        <setting label="30003" type="bool" id="us_videos" subsetting="true" default="false" />
+        <setting label="30000" type="bool" id="us_movies" default="true" />
+        <setting label="30001" type="bool" id="us_tvseries" default="true" />
+        <setting label="30003" type="bool" id="us_videos" default="false" />
     </category>
 </settings>

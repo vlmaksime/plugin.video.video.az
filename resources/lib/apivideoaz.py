@@ -3,7 +3,7 @@
 # License: GPL v.3 https://www.gnu.org/copyleft/gpl.html
 
 import requests
-import re
+import html2text
 
 class VideoAzApiError(Exception):
     def __init__(self, value, code):
@@ -12,9 +12,7 @@ class VideoAzApiError(Exception):
 
 class videoaz:
 
-    def __init__( self, params = {}, debug = False ):
-
-        self.__debug = debug
+    def __init__( self, params = {} ):
 
         self.__movie = []
         self.__video = []
@@ -59,9 +57,6 @@ class videoaz:
                           'browse_video':    {'type': 'get', 'url': base_url + '/video/browse'},
                           'get_info_video':  {'type': 'get', 'url': base_url + '/video/by_id'}}
 
-    def __debuglog( self, string ):
-        if self.__debug: print(string)
-
     def __get_setting( self, id, default='' ):
         return self.__settings.get(id, default)
 
@@ -96,6 +91,222 @@ class videoaz:
 
         return r
 
+    def get_cfduid( self ):
+
+        r = self.__http_request('main')
+        cfduid = r.cookies.get('__cfduid', '')
+        self.__set_setting('cfduid', cfduid)
+        return cfduid
+
+    def browse_video( self, params ):
+
+        u_params = {'page':     params.get('page', 1),
+                    'category': params.get('category', 0),
+                    'keyword':  params.get('keyword', '')}
+
+        r = self.__http_request('browse_video', u_params)
+        j = r.json()
+
+        if type(j) == list:
+            self.__video = []
+        else:
+            self.__video = j.get('video', [])
+
+        result = {'count': len(self.__video),
+                  'list':  self.__make_list('video')}
+        return result
+
+    def browse_movie( self, params ):
+
+        u_params = {'page':     params.get('page', 1),
+                    'category': params.get('category', 0),
+                    'lang':     params.get('lang', 0),
+                    'genre':    params.get('genre', 0),
+                    'keyword':  params.get('keyword', '')}
+
+        r = self.__http_request('browse_movie', u_params)
+        j = r.json()
+
+        if type(j) == list:
+            self.__movie = []
+        else:
+            self.__movie = j.get('movie', [])
+
+        result = {'count': len(self.__movie),
+                  'list':  self.__make_list('movie')}
+        return result
+
+    def browse_movie_related( self, id):
+        u_params = {'id': id}
+
+        r = self.__http_request('get_info_movie', u_params)
+        j = r.json()
+        self.__movie = j.get('related',[])
+
+        result = {'count': len(self.__movie),
+                  'list':  self.__make_list('movie')}
+        return result
+
+    def get_movie_details( self, id):
+        u_params = {'id': id}
+
+        r = self.__http_request('get_info_movie', u_params)
+        j = r.json()
+        self.__movie = j['player']
+
+        details = self.__get_details('movie')
+        return details
+
+    def browse_tvseries( self, params ):
+
+        u_params = {'page':    params.get('page', 1),
+                    'keyword': params.get('keyword', '')}
+
+        r = self.__http_request('browse_tvseries', u_params)
+        j = r.json()
+
+        if type(j) == list:
+            self.__tvseries = []
+        else:
+            self.__tvseries = j.get('tvseries', [])
+
+        result = {'count': len(self.__tvseries),
+                  'list':  self.__make_list('tvseries')}
+        return result
+
+    def browse_episodes( self, params ):
+
+        u_params = {'tvserie_id': params.get('tvserie_id', 0),
+                    'season':     params.get('season', 0)}
+
+        r = self.__http_request('browse_episodes', u_params)
+        j = r.json()
+
+        self.__episodes = j.get('episodes', [])
+        self.__tvseries = j.get('tvseries')
+
+        result = {'count': len(self.__episodes),
+                  'title': self.__tvseries['title'],
+                  'list':  self.__make_list('episodes', params )}
+        return result
+
+    def browse_seasons( self, params ):
+
+        u_params = {'tvserie_id': params.get('tvserie_id', 0),
+                    'season':     params.get('season', 0)}
+
+        r = self.__http_request('browse_episodes', u_params)
+        j = r.json()
+
+        self.__episodes = j.get('episodes', [])
+        self.__tvseries = j.get('tvseries')
+
+        result = {'count': len(self.__tvseries['season_list']),
+                  'title': self.__tvseries['title'],
+                  'list':  self.__make_list('seasons')}
+        return result
+
+    def category_video( self ):
+        r = self.__http_request('category_video')
+        j = r.json()
+
+        list = []
+        for item in j:
+            list.append(j[item])
+
+        return list
+
+    def category_movie( self ):
+        r = self.__http_request('category_movie')
+        j = r.json()
+
+        list = []
+        for item in j:
+            list.append(j[item])
+
+        return list
+
+    def category_genre( self ):
+        r = self.__http_request('category_genre')
+        j = r.json()
+
+        list = []
+        for item in j:
+            list.append(j[item])
+
+        return list
+
+    def get_video_url( self, params ):
+        video_stream  = self.__get_setting('video_stream')
+        video_quality = self.__get_setting('video_quality')
+
+        type = params['type']
+        if type == 'movie':
+            u_params = {'id': params['id']}
+
+            r = self.__http_request('get_info_movie', u_params)
+            j = r.json()
+            self.__movie = j['player']
+
+            mp4_path = self.__movie['video']
+
+            item_info = {'label':  self.__movie['title'],
+                         'art':    { 'poster': self.__movie['thumb'].replace('thumb','cover') },
+                         'info':   { 'video': {'mediatype': 'movie'} },
+                         'fanart': self.__movie['thumb'],
+                         'thumb':  self.__movie['thumb']}
+
+            details = self.__get_details('movie')
+            del details['video_quality']
+            del details['audio_quality']
+            item_info['info']['video'].update(details)
+
+        elif type == 'episodes':
+            u_params = {'tvserie_id': params['tvserie_id'],
+                        'season':     params['season']}
+
+            r = self.__http_request('browse_episodes', u_params)
+            j = r.json()
+            self.__episodes = j.get('episodes', [])
+            self.__tvseries = j.get('tvseries')
+            for episode in self.__episodes:
+                if episode['id'] == params['id']:
+                    u_params['episode'] = episode['episode']
+                    mp4_path = episode['video']
+
+                    label = '%s. %s %s %s %s' % (self.__tvseries['title'], self.__get_setting('season_title'), params['season'], self.__get_setting('episode_title'), episode['episode'])
+                    item_info = {'label':  label,
+                                 'art':    { 'poster': self.__tvseries['thumb'].replace('thumb','cover') },
+                                 'info':   { 'video': {'mediatype': 'movie'} },
+                                 'fanart': self.__tvseries['thumb'],
+                                 'thumb':  self.__tvseries['thumb']}
+        elif type == 'video':
+            u_params = {'id': params['id']}
+
+            r = self.__http_request('get_info_video', u_params)
+            j = r.json()
+            self.__video = j['player']
+
+            mp4_path = self.__video['video_sd']
+
+            item_info = {'label':  self.__video['title'],
+                         'info': { 'video': {'genre': self.__video['categories'],
+                                                   'mediatype': 'video'} },
+                         'fanart': self.__video['large'],
+                         'thumb':  self.__video['medium']}
+
+        if video_stream == 'm3u8':
+            m3u8_path = self.__get_playlist_url(type, u_params)
+            path = m3u8_path if m3u8_path != '' else mp4_path
+        else:
+            path = mp4_path
+
+        if type == 'video' and video_quality == 'HD' and self.__video['is_hd'] == '1':
+            path = path.replace('sd.mp4', 'hd.mp4')
+
+        item_info['path'] = path
+        return item_info
+
     def __make_list( self, source, params = {} ):
 
         if source == 'movie':
@@ -106,7 +317,7 @@ class videoaz:
                 title = movie['title']
                 title_orig = movie['title_original'] if movie['title_original'] != '' else movie['title']
                 item_info = {'label':  title,
-                             'info': { 'video': {'year':          int(movie['year']),
+                             'info': { 'video': {'year':          int(movie['year']) if movie['year'] else 0,
                                                  'title':         title,
                                                  'originaltitle': title_orig,
                                                  'sorttitle':     title,
@@ -193,7 +404,7 @@ class videoaz:
                 item_info = {'label':  title_full,
                              'info':  { 'video': {'title':         title_full,
                                                   'originaltitle': title_orig_full,
-                                                  'tvshowtitle':   title_orig,
+                                                  'tvshowtitle':   title,
                                                   'sorttitle':     title,
                                                   'season':        int(season),
                                                   'mediatype ':    'season'} },
@@ -221,210 +432,6 @@ class videoaz:
                 video_info = {'item_info':  item_info,
                               'video_info': video_info}
                 yield video_info
-
-    def get_cfduid( self ):
-
-        r = self.__http_request('main')
-        cfduid = r.cookies.get('__cfduid', '')
-        self.__set_setting('cfduid', cfduid)
-        return cfduid
-
-    def browse_video( self, params ):
-
-        u_params = {'page':     params.get('page', 1),
-                    'category': params.get('category', 0),
-                    'keyword':  params.get('keyword', '')}
-
-        r = self.__http_request('browse_video', u_params)
-        j = r.json()
-
-        if type(j) == list:
-            self.__video = []
-        else:
-            self.__video = j.get('video', [])
-
-        result = {'count': len(self.__video),
-                  'list':  self.__make_list('video')}
-        return result
-
-    def browse_movie( self, params ):
-
-        u_params = {'page':     params.get('page', 1),
-                    'category': params.get('category', 0),
-                    'lang':     params.get('lang', 0),
-                    'genre':    params.get('genre', 0),
-                    'keyword':  params.get('keyword', '')}
-
-        r = self.__http_request('browse_movie', u_params)
-        j = r.json()
-
-        if type(j) == list:
-            self.__movie = []
-        else:
-            self.__movie = j.get('movie', [])
-
-        result = {'count': len(self.__movie),
-                  'list':  self.__make_list('movie')}
-        return result
-
-    def browse_tvseries( self, params ):
-
-        u_params = {'page':    params.get('page', 1),
-                    'keyword': params.get('keyword', '')}
-
-        r = self.__http_request('browse_tvseries', u_params)
-        j = r.json()
-
-        if type(j) == list:
-            self.__tvseries = []
-        else:
-            self.__tvseries = j.get('tvseries', [])
-
-        result = {'count': len(self.__tvseries),
-                  'list':  self.__make_list('tvseries')}
-        return result
-
-    def browse_episodes( self, params ):
-
-        u_params = {'tvserie_id': params.get('tvserie_id', 0),
-                    'season':     params.get('season', 0)}
-
-        r = self.__http_request('browse_episodes', u_params)
-        j = r.json()
-
-        self.__episodes = j.get('episodes', [])
-        self.__tvseries = j.get('tvseries')
-
-        result = {'count': len(self.__episodes),
-                  'title': self.__tvseries['title'],
-                  'list':  self.__make_list('episodes', params )}
-        return result
-
-    def browse_seasons( self, params ):
-
-        u_params = {'tvserie_id': params.get('tvserie_id', 0),
-                    'season':     params.get('season', 0)}
-
-        r = self.__http_request('browse_episodes', u_params)
-        j = r.json()
-
-        self.__episodes = j.get('episodes', [])
-        self.__tvseries = j.get('tvseries')
-
-        result = {'count': len(self.__tvseries['season_list']),
-                  'title': self.__tvseries['title'],
-                  'list':  self.__make_list('seasons')}
-        return result
-
-    def get_movie_details( self, id):
-        u_params = {'id': id}
-
-        r = self.__http_request('get_info_movie', u_params)
-        j = r.json()
-        self.__movie = j['player']
-
-        details = self.__get_details('movie')
-        return details
-
-    def category_video( self ):
-        r = self.__http_request('category_video')
-        j = r.json()
-
-        list = []
-        for item in j:
-            list.append(j[item])
-
-        return list
-
-    def category_movie( self ):
-        r = self.__http_request('category_movie')
-        j = r.json()
-
-        list = []
-        for item in j:
-            list.append(j[item])
-
-        return list
-
-    def category_genre( self ):
-        r = self.__http_request('category_genre')
-        j = r.json()
-
-        list = []
-        for item in j:
-            list.append(j[item])
-
-        return list
-
-    def get_video_url( self, params ):
-        video_stream  = self.__get_setting('video_stream')
-        video_quality = self.__get_setting('video_quality')
-
-        type = params['type']
-        if type == 'movie':
-            u_params = {'id': params['id']}
-
-            r = self.__http_request('get_info_movie', u_params)
-            j = r.json()
-            self.__movie = j['player']
-
-            mp4_path = self.__movie['video']
-
-            item_info = {'label':  self.__movie['title'],
-                         'art':    { 'poster': self.__movie['thumb'].replace('thumb','cover') },
-                         'info':   { 'video': {'mediatype': 'movie'} },
-                         'fanart': self.__movie['thumb'],
-                         'thumb':  self.__movie['thumb']}
-
-            details = self.__get_details('movie')
-            del details['video_quality']
-            item_info['info']['video'].update(details)
-
-        elif type == 'episodes':
-            u_params = {'tvserie_id': params['tvserie_id'],
-                        'season':     params['season']}
-
-            r = self.__http_request('browse_episodes', u_params)
-            j = r.json()
-            self.__episodes = j.get('episodes', [])
-            self.__tvseries = j.get('tvseries')
-            for episode in self.__episodes:
-                if episode['id'] == params['id']:
-                    u_params['episode'] = episode['episode']
-                    mp4_path = episode['video']
-
-                    label = '%s. %s %s %s %s' % (self.__tvseries['title'], self.__get_setting('season_title'), params['season'], self.__get_setting('episode_title'), episode['episode'])
-                    item_info = {'label':  label,
-                                 'art':    { 'poster': self.__tvseries['thumb'].replace('thumb','cover') },
-                                 'info':   { 'video': {'mediatype': 'movie'} },
-                                 'fanart': self.__tvseries['thumb'],
-                                 'thumb':  self.__tvseries['thumb']}
-        elif type == 'video':
-            u_params = {'id': params['id']}
-
-            r = self.__http_request('get_info_video', u_params)
-            j = r.json()
-            self.__video = j['player']
-
-            mp4_path = self.__video['video_sd']
-
-            item_info = {'label':  self.__video['title'],
-                         'info': { 'video': {'genre': self.__video['categories'],
-                                                   'mediatype': 'video'} },
-                         'fanart': self.__video['large'],
-                         'thumb':  self.__video['medium']}
-
-        if video_stream == 'm3u8':
-            m3u8_path = self.__get_playlist_url(type, u_params)
-            path = m3u8_path if m3u8_path != '' else mp4_path
-        else:
-            path = mp4_path
-
-        if type == 'video' and video_quality == 'HD' and self.__video['is_hd'] == '1':
-            path = path.replace('sd.mp4', 'hd.mp4')
-
-        item_info['path'] = path
-        return item_info
 
     def __get_playlist_url( self, type, params ):
         import xml.etree.cElementTree as etree
@@ -462,6 +469,10 @@ class videoaz:
     def __get_details(self, type):
         rating_field = self.__get_setting('rating_source') + '_rating'
 
+        h = html2text.HTML2Text()
+        # Ignore converting links from HTML
+        h.ignore_links = True
+
         if type == 'movie':
             movie = self.__movie
             
@@ -478,8 +489,9 @@ class videoaz:
                        'writer':   movie['script'],
                        'tagline':  movie['slogan'],
                        'video_quality': movie['video_quality'],
+                       'audio_quality': movie['audio_quality'],
                        'duration': duration_sec,
-                       'plot':     re.sub(r'\<[^>]*\>', '', movie['description'])}
+                       'plot':     h.handle(movie['description'])}
         else:
             details = {}
         return details

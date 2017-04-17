@@ -122,7 +122,7 @@ def list_videos( params ):
     else:
         listing = []
 
-    return plugin.create_listing(listing, content=content, succeeded=succeeded, update_listing=update_listing, category=category)
+    return plugin.create_listing(listing, content=content, succeeded=succeeded, update_listing=update_listing, category=category, sort_methods=[0])
 
 def get_category_content( cat ):
     if cat == 'tvseries':
@@ -131,10 +131,11 @@ def get_category_content( cat ):
         content = 'tvshows'
     elif cat == 'videos':
         content = 'episodes'
-    elif not cat:
-        content = 'files'
+    elif cat in ['movies', 'movie_related']:
+        content = 'movies'
     else:
-        content = cat
+        content = 'files'
+        
     return content
 
 def get_video_list(cat, u_params):
@@ -148,6 +149,8 @@ def get_video_list(cat, u_params):
         video_list = _api.browse_episodes(u_params)
     elif cat == 'videos':
         video_list = _api.browse_video(u_params)
+    elif cat == 'movie_related':
+        video_list = _api.browse_movie_related(u_params)
 
     return video_list
 
@@ -224,7 +227,7 @@ def make_video_list( video_list, params={}, dir_params = {}, search=False ):
 
     count = video_list['count']
     for video_item in video_list['list']:
-        yield make_item(video_item)
+        yield make_item(video_item, search)
 
     if use_pages:
         if cur_page > 1:
@@ -244,7 +247,7 @@ def make_video_list( video_list, params={}, dir_params = {}, search=False ):
                          'url':   url}
             yield item_info
 
-def make_item( video_item ):
+def make_item( video_item, search ):
         item_info = video_item['item_info']
 
         video_info = video_item['video_info']
@@ -258,29 +261,57 @@ def make_item( video_item ):
             url = plugin.get_url(action='play', _type = 'movie', _id = video_info['id'])
 
             label_list = []
+            if search:
+                label_list.append('[%s] ' % _('Movies').decode('utf-8'))
+                
             if use_atl_names:
                 label_list.append(item_info['info']['video']['originaltitle'])
             else:
                 label_list.append(item_info['info']['video']['title'])
 
-            if item_info['info']['video']['year'] > 0:
-                label_list.append(' (%d)' % item_info['info']['video']['year'])
+            # if item_info['info']['video']['year'] > 0:
+                # label_list.append(' (%d)' % item_info['info']['video']['year'])
 
             if movie_details:
                 details = get_movie_details(video_info['id'])
 
-                if not use_atl_names and details['video_quality'] != '':
-                    label_list.append(' [%s]' % details['video_quality'])
-                del details['video_quality']
-                item_info['info']['video'].update(details)
+                quality_info = []
+                if details.get('video_quality'):
+                    quality_info.append('[B]%s:[/B] %s' % (_('Video quality').decode('utf-8'), details['video_quality']) )
+                    del details['video_quality']
 
+                if details.get('audio_quality'):
+                    if len(quality_info): quality_info.append('\n')
+                    quality_info.append('[B]%s:[/B] %s' % (_('Audio quality').decode('utf-8'), details['audio_quality']) )
+                    del details['audio_quality']
+
+                if details['plot'] and len(quality_info):
+                    quality_info.append('\n\n')
+
+                details['plot'] = ''.join(quality_info) + details['plot']
+                
+                item_info['info']['video'].update(details)
+                
+                
             item_info['label'] = ''.join(label_list)
 
             del item_info['info']['video']['title']
 
+            related_url = plugin.get_url(action='list_videos', cat = 'movie_related', _id = video_info['id'])
+            item_info['context_menu'] = [(_('Related'), 'Container.Update(%s)' % related_url)]
+
+            
         elif video_type == 'tvseries':
             is_playable = False
             url = plugin.get_url(action='list_videos', cat = 'seasons', _tvserie_id = video_info['id'], _season = video_info['season'])
+
+            if search:
+                label_list = []
+                label_list.append('[%s] ' % _('TV Series').decode('utf-8'))
+                label_list.append(item_info['info']['video']['title'])
+                item_info['label'] = ''.join(label_list)
+
+                del item_info['info']['video']['title']
 
         elif video_type == 'seasons':
             is_playable = False
@@ -303,6 +334,12 @@ def make_item( video_item ):
             item_info['fanart'] = plugin.fanart
             url = plugin.get_url(action='play', _type = 'video', _id = video_info['id'])
 
+            if search:
+                label_list = []
+                label_list.append('[%s] ' % _('Videos').decode('utf-8'))
+                label_list.append(item_info['label'])
+                item_info['label'] = ''.join(label_list)
+            
         item_info['url'] = url
         item_info['is_playable'] = is_playable
 
@@ -379,7 +416,7 @@ def search( params ):
     if keyword and new_search and not usearch:
         with plugin.get_storage('__history__.pcl') as storage:
             history = storage.get('history', [])
-            history.insert(0, {'keyword': keyword})
+            history.insert(0, {'keyword': keyword.decode('utf-8')})
             if len(history) > plugin.history_length:
                 history.pop(-1)
             storage['history'] = history
@@ -469,7 +506,7 @@ def search_history():
 
     for item in history:
         listing.append({'label': item['keyword'],
-                        'url': plugin.get_url(action='search', keyword=item['keyword'])})
+                        'url': plugin.get_url(action='search', keyword=item['keyword'].encode('utf-8'))})
 
     return plugin.create_listing(listing, content='movies')
 
