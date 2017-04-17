@@ -129,3 +129,15 @@ msgstr ""
 msgctxt "#30029"
 msgid "Search history length"
 msgstr ""
+
+msgctxt "#30030"
+msgid "Video quality"
+msgstr ""
+
+msgctxt "#30031"
+msgid "Audio quality"
+msgstr ""
+
+msgctxt "#30032"
+msgid "Related"
+msgstr ""
