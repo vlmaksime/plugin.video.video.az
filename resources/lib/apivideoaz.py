@@ -3,7 +3,6 @@
 # License: GPL v.3 https://www.gnu.org/copyleft/gpl.html
 
 import requests
-import html2text
 
 class VideoAzApiError(Exception):
     def __init__(self, value, code):
@@ -469,10 +468,6 @@ class videoaz:
     def __get_details(self, type):
         rating_field = self.__get_setting('rating_source') + '_rating'
 
-        h = html2text.HTML2Text()
-        # Ignore converting links from HTML
-        h.ignore_links = True
-
         if type == 'movie':
             movie = self.__movie
             
@@ -480,7 +475,7 @@ class videoaz:
             duration_sec = 0
             for part in duration_str.split(':'):
                 duration_sec = duration_sec * 60 + int(part)
-
+            
             details = {'rating':   float(movie[rating_field]),
                        'genre':    movie['genres'], #.split(', ') if movie['genres'] else [],
                        'cast':     movie['actors'].split(', ') if movie['actors'] else [],
@@ -491,8 +486,22 @@ class videoaz:
                        'video_quality': movie['video_quality'],
                        'audio_quality': movie['audio_quality'],
                        'duration': duration_sec,
-                       'plot':     h.handle(movie['description'])}
+                       'plot':     movie['description'],
+                       'mpaa':     self.__get_mpaa(movie['age_restriction'])}
         else:
             details = {}
         return details
-    
+
+    def __get_mpaa( self, age_restriction ):
+        if age_restriction == u'Без ограничений':
+            return 'G'
+        elif age_restriction.find('6+') >= 0:
+            return 'PG'
+        elif age_restriction.find('12+') >= 0:
+            return 'PG-13'
+        elif age_restriction.find('16+') >= 0:
+            return 'R'
+        elif age_restriction.find('18+') >= 0:
+            return 'NC-17'
+        else:
+            return ''
