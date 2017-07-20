@@ -1,10 +1,9 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
-<addon id="plugin.video.video.az" version="0.1.5" name="Video.AZ" provider-name="vl.maksime">
+<addon id="plugin.video.video.az" version="0.1.6" name="Video.AZ" provider-name="vl.maksime">
     <requires>
         <import addon="xbmc.python" version="2.19.0"/>
         <import addon="script.module.requests" version="2.12.4"/>
         <import addon="script.module.simpleplugin" version="2.2.0"/>
-        <import addon="script.module.html2text" version="2015.6.21"/>
     </requires>
     <extension point="xbmc.python.pluginsource" library="default.py">
         <provides>video</provides>
@@ -23,7 +22,7 @@
         <website>http://video.az/</website>
         <email>vl.maksime@gmail.com</email>
         <source>https://github.com/vlmaksime/plugin.video.video.az</source>
-        <news>v0.1.5 (2017-04-17)[CR]- Дополнена информация, отображаемая в описании фильма[CR]- При поиске добавил вывод раздела видео[CR]- В разделе "Кино" добавил контекстное меню для отображения похожих фильмов[CR]- По умолчанию включено получение описание фильмов</news>
+        <news>v0.1.6 (2017-07-20)[CR]- Переделан алгоритм удаления html тегов из текста[CR]- Добавил информацию о MPAA рейтинге в описании фильма</news>
         <assets>
             <icon>icon.png</icon>
             <fanart>fanart.jpg</fanart>
