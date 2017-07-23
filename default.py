@@ -129,7 +129,7 @@ def get_category_content( cat ):
         content = 'tvshows'
     elif cat == 'seasons':
         content = 'tvshows'
-    elif cat == 'videos':
+    elif cat in ['videos','episodes']:
         content = 'episodes'
     elif cat in ['movies', 'movie_related']:
         content = 'movies'
