@@ -129,3 +129,15 @@ msgstr "Разделы для поиска"
 msgctxt "#30029"
 msgid "Search history length"
 msgstr "Длина истории поиска"
+
+msgctxt "#30030"
+msgid "Video quality"
+msgstr "Качество видео"
+
+msgctxt "#30031"
+msgid "Audio quality"
+msgstr "Качество озвучки"
+
+msgctxt "#30032"
+msgid "Related"
+msgstr "Похожее"
