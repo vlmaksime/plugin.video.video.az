@@ -322,7 +322,7 @@ class videoaz:
                                                  'originaltitle': title_orig,
                                                  'sorttitle':     title,
                                                  'genre':         movie['genres'],
-                                                 'mediatype ':    'movie'} },
+                                                 'mediatype':    'movie'} },
                              'art': { 'poster': movie['cover'] },
                              'fanart': movie['cover'].replace('cover','thumb'),
                              'thumb':  movie['cover'].replace('cover','thumb')}
@@ -345,7 +345,7 @@ class videoaz:
                                                  'originaltitle': title_orig,
                                                  'tvshowtitle':   title_orig,
                                                  'sorttitle':     title,
-                                                 'mediatype ':    'tvshow'} },
+                                                 'mediatype':    'tvshow'} },
                              'art': { 'poster': tvseries['cover'] },
                              'fanart': tvseries['cover'].replace('cover','thumb'),
                              'thumb':  tvseries['cover'].replace('cover','thumb')}
@@ -378,7 +378,7 @@ class videoaz:
                                                   'sorttitle':     title,
                                                   'season':        int(params['season']),
                                                   'episode':       int(episode['episode']),
-                                                  'mediatype ':    'episode'} },
+                                                  'mediatype':    'episode'} },
                              'art': { 'poster': self.__tvseries['thumb'].replace('thumb','cover') },
                              'fanart': self.__tvseries['thumb'],
                              'thumb':  self.__tvseries['thumb']}
@@ -407,7 +407,7 @@ class videoaz:
                                                   'tvshowtitle':   title,
                                                   'sorttitle':     title,
                                                   'season':        int(season),
-                                                  'mediatype ':    'season'} },
+                                                  'mediatype':    'season'} },
                              'art': { 'poster': self.__tvseries['thumb'].replace('thumb','cover') },
                              'fanart': self.__tvseries['thumb'],
                              'thumb':  self.__tvseries['thumb']}
@@ -426,7 +426,7 @@ class videoaz:
                              'thumb':  video['medium'],
                              'info':   { 'video': {'genre':      video['categories'],
                                                    'sorttitle':  video['title'],
-                                                   'mediatype ': 'video'} },
+                                                   'mediatype': 'video'} },
                              'art':    { 'poster': video['medium'] } }
 
                 video_info = {'item_info':  item_info,
